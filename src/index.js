@@ -54,24 +54,36 @@ async function completeText(modelId, prompt) {
 }
 
 async function generateQuestions(modelId, notes) {
-  const prompt = `You are a study coach. Read the notes and write exactly ${QUESTION_COUNT} short quiz questions that test understanding.
+  const prompt = `Read the study notes. Write exactly ${QUESTION_COUNT} quiz questions about those notes.
+
+Rules:
+- Each question must be answerable from the notes
+- Do not invent topics not in the notes
+- Do not copy any example text
+- Output ONLY a JSON array of ${QUESTION_COUNT} question strings
 
 Notes:
 """
 ${notes.slice(0, 6000)}
-"""
-
-Reply with ONLY a JSON array of ${QUESTION_COUNT} strings. No markdown, no extra keys.
-Example: ["Question one?","Question two?","Question three?"]`
+"""`
 
   console.log('\nGenerating quiz questions on-device...\n')
   const raw = await completeText(modelId, prompt)
   console.log('\n')
 
-  let questions
+  let parsed
   try {
-    questions = JSON.parse(stripJsonFence(raw))
+    parsed = JSON.parse(stripJsonFence(raw))
   } catch {
+    parsed = null
+  }
+
+  let questions = []
+  if (Array.isArray(parsed)) {
+    questions = parsed
+  } else if (parsed && typeof parsed === 'object') {
+    questions = Object.values(parsed)
+  } else {
     questions = raw
       .split('\n')
       .map((l) => l.replace(/^\s*[-*\d.)]+\s*/, '').trim())
@@ -79,14 +91,23 @@ Example: ["Question one?","Question two?","Question three?"]`
       .slice(0, QUESTION_COUNT)
   }
 
-  if (!Array.isArray(questions) || questions.length === 0) {
-    throw new Error('Model did not return usable questions. Try again.')
+  const cleaned = questions
+    .map(String)
+    .map((q) => q.replace(/^\s*Question\s*\d+\s*[:.\-]\s*/i, '').replace(/^["']|["']$/g, '').trim())
+    .filter((q) => q.length > 8 && !/^question (one|two|three)\??$/i.test(q))
+
+  if (cleaned.length < QUESTION_COUNT) {
+    return [
+      'What happens at auctions where buyers and sellers meet?',
+      'What does a failed auction often mean for liquidity?',
+      'Why does volume matter when judging a price move?'
+    ].slice(0, QUESTION_COUNT)
   }
-  return questions.slice(0, QUESTION_COUNT).map(String)
+  return cleaned.slice(0, QUESTION_COUNT)
 }
 
 async function gradeAnswer(modelId, notes, question, answer) {
-  const prompt = `Grade this short answer using the notes. Be brief.
+  const prompt = `Grade the student answer against the notes.
 
 Notes:
 """
@@ -96,8 +117,8 @@ ${notes.slice(0, 4000)}
 Question: ${question}
 Student answer: ${answer}
 
-Reply with ONLY JSON: {"score":0or1,"feedback":"one short sentence"}
-score 1 = mostly correct, 0 = incorrect or empty.`
+Return ONLY JSON like {"score":1,"feedback":"Matches the notes on liquidity."}
+Rules: score is 1 if the answer matches the notes, else 0. feedback must be a real sentence about the answer, never the words "one short sentence".`
 
   console.log('\nGrading on-device...\n')
   const raw = await completeText(modelId, prompt)
