@@ -1,0 +1,11 @@
+node_modules/
+.qvac/
+*.log
+.DS_Store
+dist/
+coverage/
+.env
+.env.*
+proof/
+*.bin
+*.gguf
