@@ -9,3 +9,10 @@ coverage/
 proof/
 *.bin
 *.gguf
+
+# Keep livestream proof helpers public
+!proof/
+proof/*
+!proof/full-demo.sh
+!proof/answers.txt
+!proof/qvac-quiz-proof.png

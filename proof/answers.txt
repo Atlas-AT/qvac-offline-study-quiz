@@ -1,0 +1,3 @@
+Price discovery happens at auctions where buyers and sellers meet.
+Aggressive sellers hit bids and liquidity stepped aside.
+Volume confirms whether a move had real participation or was thin and fragile.

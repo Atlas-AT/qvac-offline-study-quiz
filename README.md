@@ -48,3 +48,15 @@ Built for the QVAC hackathon bounty on Whop: a small original app that proves on
 ## License
 
 MIT
+
+## Livestream proof (Whop bounty)
+
+Run this in a visible terminal while the Whop proof livestream is live (leave it running through install + model load + quiz output):
+
+```bash
+git clone https://github.com/Atlas-AT/qvac-offline-study-quiz.git
+cd qvac-offline-study-quiz
+bash proof/full-demo.sh
+```
+
+That script shows Node version, `@qvac/sdk` dependency, `loadModel` / `completion` in source, `npm install`, then a full on-device quiz with AI output on screen.
