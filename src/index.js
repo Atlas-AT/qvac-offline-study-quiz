@@ -26,6 +26,7 @@ Usage:
 
 Example:
   npm start -- samples/notes.md
+  npm start -- samples/notes.md --answers-file proof/answers.txt
 
 Requires Node.js >= 22.17. First run downloads a small local model.
 `)
@@ -114,12 +115,27 @@ score 1 = mostly correct, 0 = incorrect or empty.`
   }
 }
 
-async function main() {
-  const notesPath = process.argv[2]
-  if (!notesPath || notesPath === '-h' || notesPath === '--help') {
-    usage()
-    process.exit(notesPath ? 0 : 1)
+function parseArgs(argv) {
+  const args = { notesPath: null, answersFile: null }
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '-h' || a === '--help') return { help: true }
+    if (a === '--answers-file') {
+      args.answersFile = argv[++i]
+      continue
+    }
+    if (!args.notesPath) args.notesPath = a
   }
+  return args
+}
+
+async function main() {
+  const parsed = parseArgs(process.argv)
+  if (parsed.help || !parsed.notesPath) {
+    usage()
+    process.exit(parsed.help ? 0 : 1)
+  }
+  const notesPath = parsed.notesPath
 
   const abs = resolve(notesPath)
   if (!existsSync(abs)) {
@@ -149,7 +165,10 @@ async function main() {
     }
   })
 
-  const rl = readline.createInterface({ input, output })
+  const presetAnswers = parsed.answersFile
+    ? readFileSync(resolve(parsed.answersFile), 'utf8').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    : null
+  const rl = presetAnswers ? null : readline.createInterface({ input, output })
   let earned = 0
 
   try {
@@ -158,7 +177,10 @@ async function main() {
 
     for (let i = 0; i < questions.length; i++) {
       console.log(`Q${i + 1}. ${questions[i]}`)
-      const answer = (await rl.question('Your answer: ')).trim()
+      const answer = presetAnswers
+        ? String(presetAnswers[i] || '').trim()
+        : (await rl.question('Your answer: ')).trim()
+      if (presetAnswers) console.log(`Your answer: ${answer}`)
       if (!answer) {
         console.log('Skipped — counted as incorrect.\n')
         continue
@@ -171,7 +193,7 @@ async function main() {
     console.log(`--- Score: ${earned}/${questions.length} ---`)
     console.log('All inference ran locally via QVAC. Nothing sent to a cloud AI API.')
   } finally {
-    rl.close()
+    if (rl) rl.close()
     await unloadModel({ modelId })
   }
 }
